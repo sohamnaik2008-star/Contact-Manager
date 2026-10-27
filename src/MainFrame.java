@@ -5,12 +5,19 @@ import java.util.ArrayList;
 
 public class MainFrame extends JFrame {
     
+    private int userId;
     private ArrayList<Contact> contactList = new ArrayList<>();
+    private ArrayList<Integer> contactIdList = new ArrayList<>();
     private DefaultTableModel tableModel;
     private JTable contactTable;
     private JTextField nameField, phoneField, emailField;
 
     public MainFrame() {
+        this(1);
+    }
+
+    public MainFrame(int userId) {
+        this.userId = userId;
         setTitle("Contact Management System");
         setSize(800, 600);
         setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
@@ -95,6 +102,9 @@ public class MainFrame extends JFrame {
                 emailField.setText(tableModel.getValueAt(selectedRow, 2).toString());
             }
         });
+
+        DatabaseManager.loadUserContacts(this.userId, contactList, contactIdList);
+        refreshTable();
     }
 
     private void refreshTable() {
@@ -125,9 +135,16 @@ public class MainFrame extends JFrame {
                 return;
             }
             
-            contactList.add(new Contact(name, phone, email));
-            refreshTable();
-            clearFields();
+            Contact newContact = new Contact(name, phone, email);
+            int newId = DatabaseManager.addContact(this.userId, newContact);
+            if (newId != -1) {
+                contactList.add(newContact);
+                contactIdList.add(newId);
+                refreshTable();
+                clearFields();
+            } else {
+                JOptionPane.showMessageDialog(this, "Failed to save contact to database.", "Error", JOptionPane.ERROR_MESSAGE);
+            }
         } catch (Exception ex) {
             JOptionPane.showMessageDialog(this, "Error adding contact: " + ex.getMessage(), "Error", JOptionPane.ERROR_MESSAGE);
         }
@@ -159,12 +176,19 @@ public class MainFrame extends JFrame {
             return;
         }
 
-        Contact contact = contactList.get(selectedRow);
-        contact.setName(name);
-        contact.setPhone(phone);
-        contact.setEmail(email);
-        refreshTable();
-        clearFields();
+        int contactId = contactIdList.get(selectedRow);
+        Contact updatedContact = new Contact(name, phone, email);
+        boolean updated = DatabaseManager.updateContact(contactId, updatedContact);
+        if (updated) {
+            Contact contact = contactList.get(selectedRow);
+            contact.setName(name);
+            contact.setPhone(phone);
+            contact.setEmail(email);
+            refreshTable();
+            clearFields();
+        } else {
+            JOptionPane.showMessageDialog(this, "Failed to update contact in database.", "Error", JOptionPane.ERROR_MESSAGE);
+        }
     }
 
     private void deleteContact() {
@@ -173,9 +197,16 @@ public class MainFrame extends JFrame {
             JOptionPane.showMessageDialog(this, "Please select a contact to delete.", "Selection Error", JOptionPane.WARNING_MESSAGE);
             return;
         }
-        contactList.remove(selectedRow);
-        refreshTable();
-        clearFields();
+        int contactId = contactIdList.get(selectedRow);
+        boolean deleted = DatabaseManager.deleteContact(contactId);
+        if (deleted) {
+            contactList.remove(selectedRow);
+            contactIdList.remove(selectedRow);
+            refreshTable();
+            clearFields();
+        } else {
+            JOptionPane.showMessageDialog(this, "Failed to delete contact from database.", "Error", JOptionPane.ERROR_MESSAGE);
+        }
     }
 
     private void clearFields() {
